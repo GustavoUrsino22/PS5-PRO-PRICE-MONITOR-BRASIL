@@ -51,16 +51,74 @@ if df.empty:
 df["ts"] = pd.to_datetime(df["ts"], errors="coerce")
 df["available"] = df["available"].fillna(0).astype(int)
 
-sites = sorted(df["site"].dropna().unique().tolist())
-site_filter = st.multiselect("Filtrar por marketplace", sites, default=sites)
-
-df_f = df[df["site"].isin(site_filter)].copy()
-
 def brl(x) -> str:
     try:
         return f"R$ {float(x):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     except Exception:
         return "-"
+
+# ==============================
+# LABELS (NOMES BONITOS PRA UI)
+# ==============================
+SITE_LABELS = {
+    "mercadolivre": "Mercado Livre",
+    "amazon": "Amazon",
+    "magalu": "Magazine Luiza",
+    "kabum": "KaBuM!",
+    "shopee": "Shopee",
+    "carrefour": "Carrefour",
+    "casasbahia": "Casas Bahia",
+    "extra": "Extra",
+}
+
+def label_site(site: str) -> str:
+    # fallback: capitaliza caso não esteja no dicionário
+    return SITE_LABELS.get(site, str(site).replace("_", " ").title())
+
+# ==============================
+# SIDEBAR - FILTROS (ESQUERDA)
+# ==============================
+st.sidebar.header("Filtros")
+
+sites = sorted(df["site"].dropna().unique().tolist())
+
+# Mostra labels amigáveis, mas mantém o valor técnico internamente
+labels = ["Todos"] + [label_site(s) for s in sites]
+selected_label = st.sidebar.selectbox("Marketplace", labels)
+
+if selected_label == "Todos":
+    selected_site = "Todos"
+else:
+    # recupera o "site técnico" a partir do label escolhido
+    selected_site = sites[labels.index(selected_label) - 1]  # -1 por causa do "Todos"
+
+only_available = st.sidebar.checkbox("Apenas disponíveis", value=False)
+
+sort_option = st.sidebar.selectbox(
+    "Ordenar por",
+    ["Mais recente", "Menor preço", "Maior preço"]
+)
+
+# ==============================
+# APLICAR FILTROS
+# ==============================
+df_f = df.copy()
+
+# Filtro marketplace
+if selected_site != "Todos":
+    df_f = df_f[df_f["site"] == selected_site]
+
+# Filtro disponibilidade
+if only_available:
+    df_f = df_f[df_f["available"] == 1]
+
+# Ordenação
+if sort_option == "Mais recente":
+    df_f = df_f.sort_values("ts", ascending=False)
+elif sort_option == "Menor preço":
+    df_f = df_f.sort_values("price", ascending=True, na_position="last")
+elif sort_option == "Maior preço":
+    df_f = df_f.sort_values("price", ascending=False, na_position="last")
 
 # --- sessão: produto atual (imagem + marketplace + preço) ---
 st.subheader("Produto monitorado (atual)")
@@ -86,7 +144,7 @@ else:
 
     with c2:
         st.markdown("**Marketplace**")
-        st.write(r.get("site") or "-")
+        st.write(label_site(r.get("site")) if r.get("site") else "-")
 
         st.markdown("**Preço atual**")
         st.write(brl(r.get("price")))
@@ -133,8 +191,11 @@ st.dataframe(
     column_config={
         "image_url": st.column_config.ImageColumn("Foto", width="small"),
         "url": st.column_config.LinkColumn("Link", display_text="Abrir"),
+        "site": st.column_config.TextColumn("Marketplace"),
     },
 )
+
+st.caption("Observação: na tabela o campo 'site' ainda é o valor técnico (ex.: mercadolivre). Se quiser, eu ajusto para mostrar o label bonito também.")
 
 # --- gráfico ---
 st.subheader("Evolução do preço")
