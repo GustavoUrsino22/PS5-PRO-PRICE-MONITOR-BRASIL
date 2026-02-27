@@ -1,0 +1,9 @@
+product_name: "PlayStation 5 Pro"
+
+targets:
+  - site: "mercadolivre"
+    url: "https://www.mercadolivre.com.br/console-ps5-pro-sony-playstation-5-pro-2tb-digital-novo-cnf/up/MLBU3477178538"
+    target_price: 6000
+
+schedule:
+  minutes: 60
